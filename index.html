@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gesture Pong Arena</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Changa:wght@400;600;700&family=Space+Grotesk:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <p class="kicker">Webcam + Arcade</p>
+        <h1>Gesture Pong Arena</h1>
+        <p>Control your paddle with your index finger. Keyboard fallback: <kbd>W</kbd>/<kbd>S</kbd>.</p>
+      </header>
+
+      <section class="arena-grid">
+        <div class="table-wrap">
+          <canvas id="gameCanvas" width="960" height="540" aria-label="pong game canvas"></canvas>
+          <div class="overlay" id="matchOverlay" hidden>
+            <h2 id="winnerLabel">Winner</h2>
+            <button id="playAgainBtn" type="button">Play Again</button>
+          </div>
+        </div>
+
+        <aside class="panel">
+          <div class="scores">
+            <article>
+              <h2>You</h2>
+              <p id="playerScore">0</p>
+            </article>
+            <article>
+              <h2>CPU</h2>
+              <p id="cpuScore">0</p>
+            </article>
+          </div>
+
+          <div class="controls">
+            <button id="startCameraBtn" type="button">Enable Hand Control</button>
+            <button id="keyboardBtn" type="button">Keyboard Mode</button>
+            <button id="resetBtn" type="button">Reset Match</button>
+          </div>
+
+          <p id="modeLabel" class="status">Mode: keyboard</p>
+          <p id="statusLabel" class="status">Tip: allow webcam access to unlock gesture mode.</p>
+
+          <video id="previewVideo" autoplay playsinline muted hidden></video>
+          <canvas id="previewCanvas" width="256" height="144" aria-label="hand tracking preview"></canvas>
+        </aside>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
