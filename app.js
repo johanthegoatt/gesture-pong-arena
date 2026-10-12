@@ -1,4 +1,5 @@
-import { createInitialState, stepGame } from "./src/gameEngine.js";
+import { createInitialState, stepGame, handToPaddleY } from "./src/gameEngine.js";
+import { createOneEuro } from "./src/oneEuro.js";
 
 const GAME_WIDTH = 960;
 const GAME_HEIGHT = 540;
@@ -35,6 +36,10 @@ const appState = {
   handModel: null,
   handY: null,
   modelLoading: false,
+  // Fingertip landmarks shake by a few pixels every frame. A 1€ filter
+  // (Casiez et al., CHI 2012) smooths that while the hand is still and
+  // keeps up when it moves fast.
+  handFilter: createOneEuro({ minCutoff: 1.2, beta: 4 }),
 };
 
 function setStatus(message) {
@@ -117,7 +122,7 @@ function getHandPlayerY() {
     return appState.game.player.y;
   }
 
-  return appState.handY * GAME_HEIGHT - appState.game.player.height / 2;
+  return handToPaddleY(appState.handY, { height: GAME_HEIGHT, paddleHeight: appState.game.player.height });
 }
 
 function withTimeout(promise, timeoutMs, label) {
@@ -165,7 +170,7 @@ function updateHandTracking() {
 
     if (result.landmarks?.length) {
       const indexTip = result.landmarks[0][8];
-      appState.handY = indexTip.y;
+      appState.handY = appState.handFilter.filter(indexTip.y, now);
 
       previewContext.fillStyle = "#f1543f";
       previewContext.beginPath();
@@ -181,6 +186,7 @@ function updateHandTracking() {
     }
 
     appState.handY = null;
+    appState.handFilter.reset();
   } catch (error) {
     console.error(error);
     enableKeyboardMode("Tracking error. Switched to keyboard mode.");
@@ -319,6 +325,11 @@ elements.resetBtn.addEventListener("click", resetMatch);
 elements.playAgainBtn.addEventListener("click", resetMatch);
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    // The arrows move the paddle, not the page.
+    event.preventDefault();
+  }
+
   if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") {
     appState.keyState.up = true;
   }

@@ -182,3 +182,12 @@ export function stepGame(state, { dt = 1 / 60, playerY, aiSkill = 0.94 } = {}) {
 
   return next;
 }
+
+// Map the fingertip's height in the camera frame (0 top, 1 bottom) to the
+// paddle's top edge. Nobody can hold a finger at the very edge of the frame
+// without it dropping out of view, so the middle band of the frame (15% to
+// 85% by default) covers the whole court.
+export function handToPaddleY(handY, { height, paddleHeight, band = [0.15, 0.85] }) {
+  const t = clamp((handY - band[0]) / (band[1] - band[0]), 0, 1);
+  return t * (height - paddleHeight);
+}

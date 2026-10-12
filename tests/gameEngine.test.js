@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createInitialState, stepGame } from "../src/gameEngine.js";
+import { createInitialState, stepGame, handToPaddleY } from "../src/gameEngine.js";
 
 test("createInitialState sets baseline dimensions and scores", () => {
   const state = createInitialState({ width: 900, height: 500, winningScore: 5 });
@@ -93,4 +93,13 @@ test("the ball waits in the middle after a point", () => {
   next = stepGame(next, { dt: 0.5, playerY: next.player.y });
   next = stepGame(next, { dt: 0.016, playerY: next.player.y });
   assert.notEqual(next.ball.x, next.width / 2);
+});
+
+test("the middle band of the camera frame covers the whole court", () => {
+  const opts = { height: 540, paddleHeight: 96 };
+  assert.equal(handToPaddleY(0.15, opts), 0);
+  assert.equal(handToPaddleY(0.85, opts), 444);
+  assert.equal(handToPaddleY(0.5, opts), 222);
+  assert.equal(handToPaddleY(0.02, opts), 0);
+  assert.equal(handToPaddleY(0.99, opts), 444);
 });

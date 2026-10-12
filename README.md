@@ -5,7 +5,9 @@ Gesture Pong Arena is a webcam-powered Pong experience with MediaPipe hand track
 
 ## Features
 - Real-time Pong gameplay rendered on canvas
-- Hand-based paddle control using MediaPipe Hand Landmarker
+- Hand-based paddle control using MediaPipe Hand Landmarker; the middle 70% of the camera frame covers the whole court, and the fingertip is smoothed with a 1€ filter (Casiez et al., CHI 2012)
+- Swept paddle collisions, so a ball at top speed (28 px per frame at 30 fps) can't slip through a 14 px paddle
+- A short pause before each serve
 - Keyboard fallback controls (`W/S` or arrow keys)
 - Match scoring with win overlay and replay flow
 - Hardened overlay visibility + reset logic to prevent stuck game-over state
