@@ -45,8 +45,13 @@ export function createInitialState({ width = GAME_DIMENSIONS.width, height = GAM
     ball: createBall(width, height, Math.random() > 0.5 ? 1 : -1),
     isGameOver: false,
     winner: null,
+    serveMs: 0,
   };
 }
+
+// After a point the ball waits in the middle this long, so the player can
+// get their hand back to the centre before it comes at them.
+export const SERVE_PAUSE_MS = 900;
 
 function paddleBounce(ball, paddle, direction) {
   const paddleCenter = paddle.y + paddle.height / 2;
@@ -63,6 +68,23 @@ function paddleBounce(ball, paddle, direction) {
 
 function overlapsY(ball, paddle) {
   return ball.y + ball.radius >= paddle.y && ball.y - ball.radius <= paddle.y + paddle.height;
+}
+
+// Did the ball's leading edge cross the paddle's face during this step?
+// At top speed the ball moves 860 px/s; a 30 fps frame is 28 px, more than
+// the 14 px paddle plus the ball, so checking only the end position let
+// fast balls pass straight through. This checks the path instead, and finds
+// where along it the ball was when it reached the face.
+function sweptHit(prev, ball, paddle, faceX, direction) {
+  const prevEdge = prev.x + prev.radius * -direction;
+  const edge = ball.x + ball.radius * -direction;
+  const crossed = direction > 0 ? prevEdge >= faceX && edge <= faceX : prevEdge <= faceX && edge >= faceX;
+  if (!crossed || prevEdge === edge) {
+    return null;
+  }
+  const t = (prevEdge - faceX) / (prevEdge - edge);
+  const y = prev.y + (ball.y - prev.y) * t;
+  return overlapsY({ y, radius: ball.radius }, paddle) ? y : null;
 }
 
 function cloneState(state) {
@@ -85,6 +107,13 @@ export function stepGame(state, { dt = 1 / 60, playerY, aiSkill = 0.94 } = {}) {
     next.player.y = clamp(playerY, 0, next.height - next.player.height);
   }
 
+  if (next.serveMs > 0) {
+    next.serveMs = Math.max(0, next.serveMs - dt * 1000);
+    return next;
+  }
+
+  const prev = { ...next.ball };
+
   const aiTarget = next.ball.y - next.cpu.height / 2;
   const aiDelta = clamp(aiTarget - next.cpu.y, -1, 1);
   next.cpu.y = clamp(next.cpu.y + aiDelta * dt * (420 * aiSkill), 0, next.height - next.cpu.height);
@@ -102,22 +131,29 @@ export function stepGame(state, { dt = 1 / 60, playerY, aiSkill = 0.94 } = {}) {
     next.ball.vy = -Math.abs(next.ball.vy);
   }
 
+  const playerFace = next.player.x + next.player.width;
+  const playerSwept = next.ball.vx < 0 ? sweptHit(prev, next.ball, next.player, playerFace, 1) : null;
   if (
     next.ball.vx < 0 &&
-    next.ball.x - next.ball.radius <= next.player.x + next.player.width &&
-    next.ball.x > next.player.x &&
-    overlapsY(next.ball, next.player)
+    (playerSwept !== null ||
+      (next.ball.x - next.ball.radius <= playerFace && next.ball.x > next.player.x && overlapsY(next.ball, next.player)))
   ) {
-    next.ball.x = next.player.x + next.player.width + next.ball.radius;
+    if (playerSwept !== null) {
+      next.ball.y = playerSwept;
+    }
+    next.ball.x = playerFace + next.ball.radius;
     next.ball = paddleBounce(next.ball, next.player, 1);
   }
 
+  const cpuSwept = next.ball.vx > 0 ? sweptHit(prev, next.ball, next.cpu, next.cpu.x, -1) : null;
   if (
     next.ball.vx > 0 &&
-    next.ball.x + next.ball.radius >= next.cpu.x &&
-    next.ball.x < next.cpu.x + next.cpu.width &&
-    overlapsY(next.ball, next.cpu)
+    (cpuSwept !== null ||
+      (next.ball.x + next.ball.radius >= next.cpu.x && next.ball.x < next.cpu.x + next.cpu.width && overlapsY(next.ball, next.cpu)))
   ) {
+    if (cpuSwept !== null) {
+      next.ball.y = cpuSwept;
+    }
     next.ball.x = next.cpu.x - next.ball.radius;
     next.ball = paddleBounce(next.ball, next.cpu, -1);
   }
@@ -125,11 +161,13 @@ export function stepGame(state, { dt = 1 / 60, playerY, aiSkill = 0.94 } = {}) {
   if (next.ball.x + next.ball.radius < 0) {
     next.cpu.score += 1;
     next.ball = createBall(next.width, next.height, -1);
+    next.serveMs = SERVE_PAUSE_MS;
   }
 
   if (next.ball.x - next.ball.radius > next.width) {
     next.player.score += 1;
     next.ball = createBall(next.width, next.height, 1);
+    next.serveMs = SERVE_PAUSE_MS;
   }
 
   if (next.player.score >= next.winningScore) {
