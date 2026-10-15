@@ -61,7 +61,9 @@ function paddleBounce(ball, paddle, direction) {
 
   return {
     ...ball,
-    vx: Math.abs(speed * direction),
+    // direction is +1 off the player's paddle and -1 off the CPU's. Taking
+    // Math.abs of this sent every CPU return back into the CPU.
+    vx: speed * direction,
     vy: clamp(ball.vy + cappedOffset * 260, -460, 460),
   };
 }

@@ -103,3 +103,15 @@ test("the middle band of the camera frame covers the whole court", () => {
   assert.equal(handToPaddleY(0.02, opts), 0);
   assert.equal(handToPaddleY(0.99, opts), 444);
 });
+
+test("the cpu paddle sends the ball back toward the player", () => {
+  let state = createInitialState();
+  state.serveMs = 0;
+  state.ball = { x: 300, y: 270, radius: 9, vx: 500, vy: 0 };
+  state.cpu.y = 270 - state.cpu.height / 2;
+  for (let i = 0; i < 120 && state.ball.vx > 0; i += 1) {
+    state = stepGame(state, { dt: 1 / 60 });
+  }
+  assert.ok(state.ball.vx < 0, `vx ${state.ball.vx}`);
+  assert.ok(state.ball.x < state.cpu.x);
+});
