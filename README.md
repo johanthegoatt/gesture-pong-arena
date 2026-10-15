@@ -9,7 +9,8 @@ Gesture Pong Arena is a webcam-powered Pong experience with MediaPipe hand track
 - Swept paddle collisions, so a ball at top speed (28 px per frame at 30 fps) can't slip through a 14 px paddle
 - A short pause before each serve
 - CPU on easy, normal or hard: it aims where the ball will cross its side (walls included), misjudges by a set margin each rally and reacts after a short delay
-- Keyboard fallback controls (`W/S` or arrow keys)
+- Keyboard fallback controls (`W/S` or arrow keys), or drag on the court with a finger or mouse
+- `P` pauses; switching tabs or windows pauses on its own
 - Match scoring with win overlay and replay flow
 - Hardened overlay visibility + reset logic to prevent stuck game-over state
 - Live webcam preview with tracked fingertip marker
@@ -21,7 +22,7 @@ Gesture Pong Arena is a webcam-powered Pong experience with MediaPipe hand track
 cd gesture-pong-arena
 npm run dev
 ```
-Open `http://127.0.0.1:8102/gesture-pong-arena/index.html`.
+Open the URL `npm run dev` prints.
 
 ## Test
 ```bash

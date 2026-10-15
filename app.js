@@ -41,6 +41,9 @@ const appState = {
   // (Casiez et al., CHI 2012) smooths that while the hand is still and
   // keeps up when it moves fast.
   handFilter: createOneEuro({ minCutoff: 1.2, beta: 4 }),
+  paused: false,
+  // Last finger or mouse-drag position on the court, in game pixels.
+  touchY: null,
 };
 
 function setStatus(message) {
@@ -101,11 +104,31 @@ function drawGame() {
   elements.playerScore.textContent = String(game.player.score);
   elements.cpuScore.textContent = String(game.cpu.score);
 
+  if (appState.paused && !game.isGameOver) {
+    context.fillStyle = "rgba(17, 59, 47, 0.55)";
+    context.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    context.fillStyle = "#ffffff";
+    context.font = "700 42px sans-serif";
+    context.textAlign = "center";
+    context.fillText("Paused", GAME_WIDTH / 2, GAME_HEIGHT / 2);
+    context.font = "18px sans-serif";
+    context.fillText("Press P or tap the court to carry on", GAME_WIDTH / 2, GAME_HEIGHT / 2 + 34);
+  }
+
   if (game.isGameOver) {
     setOverlay("gameover", game.winner || "CPU");
   } else {
     setOverlay("none");
   }
+}
+
+function setPaused(paused) {
+  if (appState.game.isGameOver) return;
+  appState.paused = paused;
+  appState.lastFrameAt = 0;
+  appState.keyState.up = false;
+  appState.keyState.down = false;
+  setStatus(paused ? "Paused." : "Back in play.");
 }
 
 function getKeyboardPlayerY(dt) {
@@ -204,7 +227,16 @@ function animate(timestamp) {
 
   updateHandTracking();
 
-  const playerY = appState.controlMode === "hand" ? getHandPlayerY() : getKeyboardPlayerY(dt);
+  if (appState.paused) {
+    drawGame();
+    requestAnimationFrame(animate);
+    return;
+  }
+
+  let playerY;
+  if (appState.controlMode === "hand") playerY = getHandPlayerY();
+  else if (appState.controlMode === "touch") playerY = appState.touchY ?? appState.game.player.y;
+  else playerY = getKeyboardPlayerY(dt);
 
   appState.game = stepGame(appState.game, { dt, playerY, difficulty: elements.difficultySelect.value });
   drawGame();
@@ -346,6 +378,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
   }
 
+  if (appState.controlMode === "touch" && /^(arrowup|arrowdown|w|s)$/i.test(event.key)) {
+    enableKeyboardMode();
+  }
+
   if (event.key === "ArrowUp" || event.key.toLowerCase() === "w") {
     appState.keyState.up = true;
   }
@@ -362,6 +398,47 @@ document.addEventListener("keyup", (event) => {
 
   if (event.key === "ArrowDown" || event.key.toLowerCase() === "s") {
     appState.keyState.down = false;
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key.toLowerCase() === "p" && !event.target.closest?.("select, input")) {
+    setPaused(!appState.paused);
+  }
+});
+
+// A notification or a tab switch should not cost a point.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) setPaused(true);
+});
+window.addEventListener("blur", () => setPaused(true));
+
+// Drag on the court (finger, pen or mouse) to move the paddle directly: the
+// way to play on a phone, or without giving the page camera access.
+function courtY(event) {
+  const rect = elements.canvas.getBoundingClientRect();
+  const y = ((event.clientY - rect.top) / rect.height) * GAME_HEIGHT;
+  return y - appState.game.player.height / 2;
+}
+
+elements.canvas.addEventListener("pointerdown", (event) => {
+  if (appState.paused) {
+    setPaused(false);
+    return;
+  }
+  elements.canvas.setPointerCapture(event.pointerId);
+  if (appState.controlMode !== "touch") {
+    if (appState.controlMode === "hand") stopStream();
+    appState.controlMode = "touch";
+    setMode("touch");
+    setStatus("Touch mode: drag on the court to move your paddle.");
+  }
+  appState.touchY = courtY(event);
+});
+
+elements.canvas.addEventListener("pointermove", (event) => {
+  if (appState.controlMode === "touch" && (event.buttons || event.pointerType !== "mouse")) {
+    appState.touchY = courtY(event);
   }
 });
 
