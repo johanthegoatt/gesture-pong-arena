@@ -191,3 +191,18 @@ kbd {
     grid-template-columns: 1fr;
   }
 }
+
+.difficulty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  font-weight: 700;
+}
+
+.difficulty select {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border-radius: 10px;
+}

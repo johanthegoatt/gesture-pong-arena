@@ -12,6 +12,7 @@ const elements = {
   startCameraBtn: document.getElementById("startCameraBtn"),
   keyboardBtn: document.getElementById("keyboardBtn"),
   resetBtn: document.getElementById("resetBtn"),
+  difficultySelect: document.getElementById("difficultySelect"),
   modeLabel: document.getElementById("modeLabel"),
   statusLabel: document.getElementById("statusLabel"),
   previewVideo: document.getElementById("previewVideo"),
@@ -205,7 +206,7 @@ function animate(timestamp) {
 
   const playerY = appState.controlMode === "hand" ? getHandPlayerY() : getKeyboardPlayerY(dt);
 
-  appState.game = stepGame(appState.game, { dt, playerY });
+  appState.game = stepGame(appState.game, { dt, playerY, difficulty: elements.difficultySelect.value });
   drawGame();
 
   requestAnimationFrame(animate);
@@ -322,6 +323,21 @@ elements.keyboardBtn.addEventListener("click", () => {
   enableKeyboardMode();
 });
 elements.resetBtn.addEventListener("click", resetMatch);
+
+const DIFFICULTY_KEY = "gesture-pong:difficulty";
+try {
+  const saved = localStorage.getItem(DIFFICULTY_KEY);
+  if (saved && [...elements.difficultySelect.options].some((o) => o.value === saved)) {
+    elements.difficultySelect.value = saved;
+  }
+} catch {}
+elements.difficultySelect.addEventListener("change", () => {
+  try {
+    localStorage.setItem(DIFFICULTY_KEY, elements.difficultySelect.value);
+  } catch {}
+  elements.difficultySelect.blur();
+  resetMatch();
+});
 elements.playAgainBtn.addEventListener("click", resetMatch);
 
 document.addEventListener("keydown", (event) => {

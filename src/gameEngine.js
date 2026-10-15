@@ -89,6 +89,51 @@ function sweptHit(prev, ball, paddle, faceX, direction) {
   return overlapsY({ y, radius: ball.radius }, paddle) ? y : null;
 }
 
+// The CPU aims where the ball will cross its face (bouncing off the walls),
+// misjudges by up to `error` px (re-rolled every time the ball turns toward
+// it), and only starts moving `reactMs` after the turn. Tracking the ball's
+// current height at full speed, as before, made it effectively unbeatable.
+export const DIFFICULTY = {
+  easy: { speed: 300, error: 72, reactMs: 260 },
+  normal: { speed: 390, error: 40, reactMs: 160 },
+  hard: { speed: 480, error: 14, reactMs: 80 },
+};
+
+export function predictInterceptY(ball, faceX, height) {
+  if (ball.vx === 0) {
+    return ball.y;
+  }
+  const time = (faceX - ball.x) / ball.vx;
+  if (time <= 0) {
+    return ball.y;
+  }
+  // Unfold the bounces: the ball travels a straight line in a mirrored court.
+  const low = ball.radius;
+  const span = height - ball.radius * 2;
+  const raw = ball.y - low + ball.vy * time;
+  const period = span * 2;
+  const folded = ((raw % period) + period) % period;
+  return low + (folded <= span ? folded : period - folded);
+}
+
+function stepCpu(next, dt, profile, random) {
+  const cpu = next.cpu;
+  const comingAtCpu = next.ball.vx > 0;
+  if (comingAtCpu !== cpu.tracking) {
+    cpu.tracking = comingAtCpu;
+    cpu.reactLeftMs = profile.reactMs;
+    cpu.aimError = (random() * 2 - 1) * profile.error;
+  }
+  cpu.reactLeftMs = Math.max(0, (cpu.reactLeftMs ?? 0) - dt * 1000);
+  if (cpu.reactLeftMs > 0) {
+    return;
+  }
+  const centre = comingAtCpu ? predictInterceptY(next.ball, cpu.x, next.height) + (cpu.aimError ?? 0) : next.height / 2;
+  const target = centre - cpu.height / 2;
+  const step = profile.speed * dt;
+  cpu.y = clamp(cpu.y + clamp(target - cpu.y, -step, step), 0, next.height - cpu.height);
+}
+
 function cloneState(state) {
   return {
     ...state,
@@ -98,7 +143,7 @@ function cloneState(state) {
   };
 }
 
-export function stepGame(state, { dt = 1 / 60, playerY, aiSkill = 0.94 } = {}) {
+export function stepGame(state, { dt = 1 / 60, playerY, difficulty = "normal", random = Math.random } = {}) {
   if (state.isGameOver) {
     return state;
   }
@@ -116,9 +161,7 @@ export function stepGame(state, { dt = 1 / 60, playerY, aiSkill = 0.94 } = {}) {
 
   const prev = { ...next.ball };
 
-  const aiTarget = next.ball.y - next.cpu.height / 2;
-  const aiDelta = clamp(aiTarget - next.cpu.y, -1, 1);
-  next.cpu.y = clamp(next.cpu.y + aiDelta * dt * (420 * aiSkill), 0, next.height - next.cpu.height);
+  stepCpu(next, dt, DIFFICULTY[difficulty] ?? DIFFICULTY.normal, random);
 
   next.ball.x += next.ball.vx * dt;
   next.ball.y += next.ball.vy * dt;

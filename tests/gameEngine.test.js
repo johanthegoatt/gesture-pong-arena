@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createInitialState, stepGame, handToPaddleY } from "../src/gameEngine.js";
+import { createInitialState, stepGame, handToPaddleY, predictInterceptY, DIFFICULTY } from "../src/gameEngine.js";
 
 test("createInitialState sets baseline dimensions and scores", () => {
   const state = createInitialState({ width: 900, height: 500, winningScore: 5 });
@@ -114,4 +114,40 @@ test("the cpu paddle sends the ball back toward the player", () => {
   }
   assert.ok(state.ball.vx < 0, `vx ${state.ball.vx}`);
   assert.ok(state.ball.x < state.cpu.x);
+});
+
+test("intercept prediction unfolds wall bounces", () => {
+  const ball = { x: 100, y: 100, vx: 400, vy: -400, radius: 10 };
+  // 900 px across takes 2.25 s and 900 px of climb: off the top, then off the bottom.
+  const y = predictInterceptY(ball, 1000, 540);
+  assert.ok(Math.abs(y - 240) < 1e-6, `y ${y}`);
+  assert.equal(predictInterceptY({ ...ball, vx: -400 }, 1000, 540), 100);
+});
+
+function rallyAtCpu(difficulty, aimError) {
+  let state = createInitialState();
+  state.serveMs = 0;
+  state.ball = { x: 300, y: 270, radius: 9, vx: 500, vy: 180 };
+  const random = () => (aimError + 1) / 2;
+  for (let i = 0; i < 120 && state.ball.vx > 0; i += 1) {
+    state = stepGame(state, { dt: 1 / 60, difficulty, random });
+  }
+  return state;
+}
+
+test("hard cpu returns a ball it read correctly", () => {
+  const state = rallyAtCpu("hard", 0);
+  assert.ok(state.ball.vx < 0, "ball comes back");
+  assert.equal(state.player.score, 0);
+});
+
+test("easy cpu can misjudge badly enough to concede", () => {
+  // The ball lands low; a misread upward leaves the paddle above it.
+  const state = rallyAtCpu("easy", -1);
+  assert.equal(state.player.score, 1);
+});
+
+test("difficulties get faster and more accurate", () => {
+  assert.ok(DIFFICULTY.easy.speed < DIFFICULTY.normal.speed && DIFFICULTY.normal.speed < DIFFICULTY.hard.speed);
+  assert.ok(DIFFICULTY.easy.error > DIFFICULTY.hard.error);
 });
